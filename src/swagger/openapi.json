@@ -1,0 +1,602 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "School Management System API",
+    "version": "1.0.0",
+    "description": "Backend APIs for the School Management System (single school)."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Local server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email", "example": "admin@school.com" },
+          "password": { "type": "string", "example": "password123" }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "data": {
+            "type": "object",
+            "properties": {
+              "user": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string", "format": "uuid" },
+                  "email": { "type": "string", "format": "email" },
+                  "role": { "type": "string", "example": "SCHOOL_ADMIN" },
+                  "isActive": { "type": "boolean" }
+                }
+              },
+              "tokens": { "$ref": "#/components/schemas/TokenPair" }
+            }
+          },
+          "message": { "type": "string", "example": "Login successful" }
+        }
+      },
+      "TokenPair": {
+        "type": "object",
+        "properties": {
+          "accessToken": { "type": "string" },
+          "refreshToken": { "type": "string" }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "required": ["refreshToken"],
+        "properties": {
+          "refreshToken": { "type": "string" }
+        }
+      },
+      "SchoolSetupRequest": {
+        "type": "object",
+        "required": [
+          "schoolName",
+          "adminName",
+          "adminEmail",
+          "adminPassword",
+          "standardsWithBoards",
+          "academicYearName",
+          "academicYearStartDate",
+          "academicYearEndDate"
+        ],
+        "properties": {
+          "schoolName": { "type": "string", "example": "ABC Public School" },
+          "address": { "type": "string", "example": "123 Main St" },
+          "contactNumber": { "type": "string", "example": "9876543210" },
+          "schoolEmail": { "type": "string", "format": "email", "example": "info@school.com" },
+          "adminName": { "type": "string", "example": "John Admin" },
+          "adminEmail": { "type": "string", "format": "email" },
+          "adminPassword": { "type": "string", "example": "password123" },
+          "standardsWithBoards": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "standard": { "type": "string", "example": "1st" },
+                "board": { "type": "string", "example": "CBSE" }
+              }
+            }
+          },
+          "academicYearName": { "type": "string", "example": "2024-25" },
+          "academicYearStartDate": { "type": "string", "example": "2024-04-01" },
+          "academicYearEndDate": { "type": "string", "example": "2025-03-31" }
+        }
+      },
+      "CreateTeacherRequest": {
+        "type": "object",
+        "required": ["firstName", "lastName", "email", "password"],
+        "properties": {
+          "firstName": { "type": "string", "example": "Jane" },
+          "lastName": { "type": "string", "example": "Doe" },
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string", "example": "password123" },
+          "phone": { "type": "string", "example": "1234567890" },
+          "employeeId": { "type": "string", "example": "EMP001" },
+          "dateOfBirth": { "type": "string", "example": "1990-01-01" },
+          "joiningDate": { "type": "string", "example": "2024-01-10" },
+          "qualification": { "type": "string", "example": "M.Sc Mathematics" },
+          "classIds": {
+            "type": "array",
+            "items": { "type": "string", "format": "uuid" }
+          }
+        }
+      },
+      "TeacherResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "userId": { "type": "string", "format": "uuid" },
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" },
+          "employeeId": { "type": "string" },
+          "email": { "type": "string" },
+          "phone": { "type": "string" },
+          "classes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "name": { "type": "string" },
+                "section": { "type": "string" },
+                "standard": { "type": "string" },
+                "board": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "AssignTeacherRequest": {
+        "type": "object",
+        "required": ["teacherId", "classIds"],
+        "properties": {
+          "teacherId": { "type": "string", "format": "uuid" },
+          "classIds": {
+            "type": "array",
+            "items": { "type": "string", "format": "uuid" }
+          }
+        }
+      },
+      "ParentResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "firstName": { "type": "string" },
+          "lastName": { "type": "string" },
+          "relation": { "type": "string" },
+          "email": { "type": "string" },
+          "students": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "admissionNumber": { "type": "string" },
+                "firstName": { "type": "string" },
+                "lastName": { "type": "string" },
+                "class": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" },
+                    "standard": { "type": "string" },
+                    "board": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "AttendanceMarkRequest": {
+        "type": "object",
+        "required": ["classId", "date", "attendanceRecords"],
+        "properties": {
+          "classId": { "type": "string", "format": "uuid" },
+          "date": { "type": "string", "example": "2024-01-15" },
+          "attendanceRecords": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "studentId": { "type": "string", "format": "uuid" },
+                "status": {
+                  "type": "string",
+                  "enum": ["PRESENT", "ABSENT", "LATE", "EXCUSED"]
+                },
+                "remarks": { "type": "string" }
+              }
+            }
+          },
+          "notes": { "type": "string" }
+        }
+      },
+      "AttendanceResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "classId": { "type": "string" },
+          "className": { "type": "string" },
+          "date": { "type": "string" },
+          "markedBy": { "type": "string" },
+          "totalPresent": { "type": "integer" },
+          "totalAbsent": { "type": "integer" },
+          "records": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "studentId": { "type": "string" },
+                "studentName": { "type": "string" },
+                "admissionNumber": { "type": "string" },
+                "status": { "type": "string" },
+                "remarks": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "NotificationRegisterRequest": {
+        "type": "object",
+        "required": ["userId", "deviceToken", "platform"],
+        "properties": {
+          "userId": { "type": "string", "format": "uuid" },
+          "deviceToken": { "type": "string", "example": "onesignal-or-fcm-token" },
+          "platform": { "type": "string", "enum": ["IOS", "ANDROID", "WEB"] }
+        }
+      },
+      "NotificationSendRequest": {
+        "type": "object",
+        "required": ["title", "message", "recipients"],
+        "properties": {
+          "title": { "type": "string", "example": "Exam Reminder" },
+          "message": { "type": "string", "example": "Unit test on Monday" },
+          "recipients": {
+            "type": "object",
+            "properties": {
+              "userIds": {
+                "type": "array",
+                "items": { "type": "string", "format": "uuid" }
+              },
+              "roles": {
+                "type": "array",
+                "items": { "type": "string", "enum": ["SCHOOL_ADMIN", "TEACHER", "PARENT"] }
+              },
+              "classIds": {
+                "type": "array",
+                "items": { "type": "string", "format": "uuid" }
+              }
+            }
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          }
+        }
+      },
+      "NotificationListItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "state": { "type": "string", "enum": ["completed", "failed"] },
+          "failedReason": { "type": "string", "nullable": true },
+          "title": { "type": "string" },
+          "message": { "type": "string" },
+          "recipientUserIds": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "initiatedBy": { "type": "string" },
+          "timestamp": { "type": "integer" },
+          "finishedOn": { "type": "integer", "nullable": true }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LoginResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Refresh access token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "New token pair",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TokenPair" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/school/setup": {
+      "post": {
+        "tags": ["School"],
+        "summary": "One-time school setup (public)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SchoolSetupRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "School initialized"
+          },
+          "409": { "description": "School already exists" }
+        }
+      }
+    },
+    "/api/user/teacher": {
+      "post": {
+        "tags": ["User"],
+        "summary": "Create teacher (admin only)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateTeacherRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Teacher created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TeacherResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/teachers": {
+      "get": {
+        "tags": ["User"],
+        "summary": "List teachers (admin only)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of teachers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/TeacherResponse" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/teacher/assign": {
+      "post": {
+        "tags": ["User"],
+        "summary": "Assign teacher to classes (admin only)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AssignTeacherRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Assignments updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TeacherResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/user/parent/{id}": {
+      "get": {
+        "tags": ["User"],
+        "summary": "Get parent profile (self or admin)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Parent profile",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ParentResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/attendance/mark": {
+      "post": {
+        "tags": ["Attendance"],
+        "summary": "Mark attendance (teacher assigned to class)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AttendanceMarkRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Attendance recorded",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AttendanceResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/attendance/class/{classId}": {
+      "get": {
+        "tags": ["Attendance"],
+        "summary": "View attendance (role-based)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "classId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "date", "in": "query", "schema": { "type": "string" } },
+          { "name": "startDate", "in": "query", "schema": { "type": "string" } },
+          { "name": "endDate", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Attendance list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/AttendanceResponse" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/attendance/edit/{date}/{classId}": {
+      "put": {
+        "tags": ["Attendance"],
+        "summary": "Edit attendance (admin only)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "date", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "classId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AttendanceMarkRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Attendance updated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AttendanceResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notification/device": {
+      "post": {
+        "tags": ["Notification"],
+        "summary": "Register device token",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/NotificationRegisterRequest" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Device registered" }
+        }
+      }
+    },
+    "/api/notification/send": {
+      "post": {
+        "tags": ["Notification"],
+        "summary": "Queue notification (admin only)",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/NotificationSendRequest" }
+            }
+          }
+        },
+        "responses": {
+          "202": { "description": "Queued" }
+        }
+      }
+    },
+    "/api/notification/list": {
+      "get": {
+        "tags": ["Notification"],
+        "summary": "List notifications (admin: all, user: own)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "example": 50 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification jobs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/NotificationListItem" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

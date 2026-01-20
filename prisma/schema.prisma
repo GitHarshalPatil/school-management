@@ -1,0 +1,365 @@
+// Prisma Schema for School Management System
+// Single School, Single Database Architecture
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// SYSTEM TABLES (Seed Data - Immutable)
+// ============================================
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique @db.VarChar(50)
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users User[]
+
+  @@map("roles")
+}
+
+model Board {
+  id          String   @id @default(uuid())
+  name        String   @unique @db.VarChar(50) // CBSE, STATE, ICSE, GENERAL
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  standardBoards StandardBoard[]
+  classes        Class[]
+
+  @@map("boards")
+}
+
+model Standard {
+  id          String   @id @default(uuid())
+  name        String   @unique @db.VarChar(50) // Nursery, LKG, UKG, 1st, 2nd, ..., 10th
+  order       Int      @unique // For sorting: 0=Nursery, 1=LKG, 2=UKG, 3=1st, etc.
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  standardBoards StandardBoard[]
+  classes        Class[]
+  students       Student[]
+
+  @@map("standards")
+}
+
+// Junction table: Standard can have different boards
+model StandardBoard {
+  id         String   @id @default(uuid())
+  standardId String
+  boardId    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  standard Standard @relation(fields: [standardId], references: [id], onDelete: Cascade)
+  board    Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+
+  @@unique([standardId, boardId])
+  @@map("standard_boards")
+}
+
+// ============================================
+// SCHOOL & ACADEMIC STRUCTURE
+// ============================================
+
+model School {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(255)
+  address     String?  @db.Text
+  phone       String?  @db.VarChar(20)
+  email       String?  @db.VarChar(255)
+  logo        String?  @db.VarChar(500) // Path to uploaded logo file
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  academicYears AcademicYear[]
+  classes       Class[]
+  users         User[]
+  students      Student[]
+
+  @@map("schools")
+}
+
+model AcademicYear {
+  id          String   @id @default(uuid())
+  schoolId    String
+  name        String   @db.VarChar(100) // e.g., "2024-2025"
+  startDate   DateTime @db.Date
+  endDate     DateTime @db.Date
+  isCurrent   Boolean  @default(false) // Only one can be current
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  classes Class[]
+  students Student[]
+
+  @@index([schoolId])
+  @@index([isCurrent])
+  @@map("academic_years")
+}
+
+model Class {
+  id             String   @id @default(uuid())
+  schoolId       String
+  academicYearId String
+  standardId     String
+  boardId        String
+  section        String   @db.VarChar(10) // A, B, C, etc.
+  name           String   @db.VarChar(100) // e.g., "1st A - CBSE"
+  capacity       Int      @default(60)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  school        School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYear  AcademicYear  @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  standard      Standard      @relation(fields: [standardId], references: [id], onDelete: Restrict)
+  board         Board         @relation(fields: [boardId], references: [id], onDelete: Restrict)
+  
+  students      Student[]
+  attendances   Attendance[]
+  teacherClasses TeacherClass[]
+
+  @@unique([academicYearId, standardId, boardId, section])
+  @@index([schoolId])
+  @@index([academicYearId])
+  @@index([standardId])
+  @@map("classes")
+}
+
+// ============================================
+// USER MANAGEMENT
+// ============================================
+
+model User {
+  id           String   @id @default(uuid())
+  schoolId     String
+  roleId       String
+  email        String   @unique @db.VarChar(255)
+  passwordHash String   @db.VarChar(255)
+  phone        String?  @db.VarChar(20)
+  isActive     Boolean  @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  school        School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  role          Role           @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  teacherProfile TeacherProfile?
+  parentProfile ParentProfile?
+  deviceTokens  DeviceToken[]
+  notificationDeliveries NotificationDelivery[]
+
+  @@index([schoolId])
+  @@index([roleId])
+  @@index([email])
+  @@map("users")
+}
+
+model TeacherProfile {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  firstName     String   @db.VarChar(100)
+  lastName      String   @db.VarChar(100)
+  employeeId    String?  @unique @db.VarChar(50)
+  dateOfBirth   DateTime? @db.Date
+  joiningDate   DateTime? @db.Date
+  qualification String?  @db.VarChar(255)
+  password      String?  @db.VarChar(255) // Plain text password for teacher credentials
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teacherClasses TeacherClass[]
+
+  @@map("teacher_profiles")
+}
+
+model ParentProfile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  firstName   String   @db.VarChar(100)
+  lastName    String   @db.VarChar(100)
+  relation    String   @db.VarChar(50) // Father, Mother, Guardian
+  occupation  String?  @db.VarChar(255)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  students Student[]
+
+  @@map("parent_profiles")
+}
+
+// Junction table: Teacher assigned to Classes
+model TeacherClass {
+  id        String   @id @default(uuid())
+  teacherId String
+  classId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teacher TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  class   Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([teacherId, classId])
+  @@index([teacherId])
+  @@index([classId])
+  @@map("teacher_classes")
+}
+
+// ============================================
+// STUDENT MANAGEMENT
+// ============================================
+
+model Student {
+  id             String   @id @default(uuid())
+  schoolId       String
+  academicYearId String
+  classId        String
+  parentId       String
+  standardId     String
+  admissionNumber String  @unique @db.VarChar(50)
+  firstName      String   @db.VarChar(100)
+  lastName       String   @db.VarChar(100)
+  dateOfBirth    DateTime @db.Date
+  gender         String   @db.VarChar(10) // MALE, FEMALE, OTHER
+  bloodGroup     String?  @db.VarChar(10)
+  address        String?  @db.Text
+  phone          String?  @db.VarChar(20)
+  admissionDate  DateTime @db.Date
+  isActive       Boolean  @default(true)
+  profilePhoto   String?  @db.VarChar(500) // Path to uploaded file
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  school        School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  academicYear  AcademicYear  @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  class         Class         @relation(fields: [classId], references: [id], onDelete: Restrict)
+  parent        ParentProfile @relation(fields: [parentId], references: [id], onDelete: Restrict)
+  standard      Standard      @relation(fields: [standardId], references: [id], onDelete: Restrict)
+  
+  attendanceRecords AttendanceRecord[]
+
+  @@index([schoolId])
+  @@index([academicYearId])
+  @@index([classId])
+  @@index([parentId])
+  @@index([admissionNumber])
+  @@map("students")
+}
+
+// ============================================
+// ATTENDANCE MANAGEMENT
+// ============================================
+
+model Attendance {
+  id            String   @id @default(uuid())
+  classId       String
+  date          DateTime @db.Date
+  markedBy      String   // userId of teacher who marked
+  totalPresent  Int      @default(0)
+  totalAbsent   Int      @default(0)
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  class             Class             @relation(fields: [classId], references: [id], onDelete: Cascade)
+  attendanceRecords AttendanceRecord[]
+
+  @@unique([classId, date])
+  @@index([classId])
+  @@index([date])
+  @@index([markedBy])
+  @@map("attendances")
+}
+
+model AttendanceRecord {
+  id           String   @id @default(uuid())
+  attendanceId String
+  studentId    String
+  status       String   @db.VarChar(20) // PRESENT, ABSENT, LATE, EXCUSED
+  remarks      String?  @db.VarChar(255)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  attendance Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  student    Student    @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([attendanceId, studentId])
+  @@index([attendanceId])
+  @@index([studentId])
+  @@index([status])
+  @@map("attendance_records")
+}
+
+// ============================================
+// NOTIFICATION & PUSH
+// ============================================
+
+model DeviceToken {
+  id           String   @id @default(uuid())
+  userId       String
+  token        String   @db.VarChar(500)
+  platform     String   @db.VarChar(20) // IOS, ANDROID, WEB
+  isActive     Boolean  @default(true)
+  lastUsedAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, token])
+  @@index([userId])
+  @@index([isActive])
+  @@map("device_tokens")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id          String   @id @default(uuid())
+  title       String   @db.VarChar(255)
+  message     String   @db.Text
+  recipients  Json     // Stored as { userIds: [], roles: [], classIds: [] }
+  createdBy   String?  // userId of creator
+  createdAt   DateTime @default(now())
+
+  deliveries NotificationDelivery[]
+
+  @@index([createdBy])
+  @@map("notifications")
+}
+
+model NotificationDelivery {
+  id             String   @id @default(uuid())
+  notificationId String
+  userId         String
+  status         String   @db.VarChar(50) // PENDING, SENT, FAILED
+  error          String?  @db.Text
+  deliveredAt    DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("notification_deliveries")
+}
+
